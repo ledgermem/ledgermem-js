@@ -53,4 +53,6 @@ export type ClientConfig = {
   timeoutMs?: number
   /** Inject a custom fetch — handy for testing or proxying. */
   fetch?: typeof fetch
+  /** Max retry attempts on 429/5xx and transient network errors (default 3). */
+  maxRetries?: number
 }
