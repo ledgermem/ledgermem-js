@@ -50,7 +50,31 @@ function retryDelayMs(attempt: number): number {
 }
 
 function isRetryableStatus(status: number): boolean {
+  // 501 Not Implemented is a permanent failure — retrying just wastes round-trips.
+  if (status === 501) return false
   return status === 429 || (status >= 500 && status < 600)
+}
+
+function parseRetryAfterMs(headerValue: string | null): number | null {
+  if (!headerValue) return null
+  const trimmed = headerValue.trim()
+  // Delta-seconds form.
+  const seconds = Number(trimmed)
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(seconds * 1000, RETRY_MAX_DELAY_MS)
+  }
+  // HTTP-date form.
+  const epoch = Date.parse(trimmed)
+  if (!Number.isNaN(epoch)) {
+    const delta = epoch - Date.now()
+    return Math.max(0, Math.min(delta, RETRY_MAX_DELAY_MS))
+  }
+  return null
+}
+
+function delayForResponse(res: Response, attempt: number): number {
+  const hint = parseRetryAfterMs(res.headers.get('retry-after'))
+  return hint !== null ? hint : retryDelayMs(attempt)
 }
 
 function sleep(ms: number): Promise<void> {
@@ -163,9 +187,12 @@ export class LedgerMem {
           signal: ctrl.signal,
         })
         if (isRetryableStatus(res.status) && attempt < this.#maxRetries) {
+          // Capture Retry-After before draining; some runtimes invalidate
+          // headers once the body is consumed.
+          const wait = delayForResponse(res, attempt)
           // Drain body so the underlying connection can be reused.
           await res.text().catch(() => undefined)
-          await sleep(retryDelayMs(attempt))
+          await sleep(wait)
           continue
         }
         const text = await res.text()
