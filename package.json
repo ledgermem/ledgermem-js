@@ -1,7 +1,7 @@
 {
-  "name": "@ledgermem/memory",
+  "name": "@getmnemo/memory",
   "version": "0.1.0",
-  "description": "Official TypeScript / JavaScript SDK for LedgerMem Memory — long-term memory infrastructure for AI agents.",
+  "description": "Official TypeScript / JavaScript SDK for Mnemo Memory — long-term memory infrastructure for AI agents.",
   "type": "module",
   "license": "MIT",
   "main": "./dist/index.cjs",
@@ -39,13 +39,13 @@
     "longmemeval",
     "mcp"
   ],
-  "homepage": "https://proofly.dev",
+  "homepage": "https://getmnemo.xyz",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ledgermem/ledgermem-js"
+    "url": "https://github.com/getmnemo/getmnemo-js"
   },
   "bugs": {
-    "url": "https://github.com/ledgermem/ledgermem-js/issues"
+    "url": "https://github.com/getmnemo/getmnemo-js/issues"
   },
   "dependencies": {},
   "devDependencies": {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { LedgerMem, LedgerMemHTTPError } from './index.js'
+import { Mnemo, MnemoHTTPError } from './index.js'
 
 const ISO = '2026-04-27T12:00:00.000Z'
 
@@ -23,9 +23,9 @@ function fakeFetch(handler: (req: Request) => Response | Promise<Response>): typ
   }) as typeof fetch
 }
 
-describe('LedgerMem', () => {
+describe('Mnemo', () => {
   it('search() round-trips and parses hits', async () => {
-    const client = new LedgerMem({
+    const client = new Mnemo({
       apiKey: 'test',
       workspaceId: 'ws_test',
       fetch: fakeFetch(async (req) => {
@@ -57,7 +57,7 @@ describe('LedgerMem', () => {
   })
 
   it('add() returns a typed memory', async () => {
-    const client = new LedgerMem({
+    const client = new Mnemo({
       apiKey: 'test',
       workspaceId: 'ws_test',
       fetch: fakeFetch(
@@ -72,8 +72,8 @@ describe('LedgerMem', () => {
     expect(mem.id).toBe('mem_123')
   })
 
-  it('throws LedgerMemHTTPError with status + body on non-2xx', async () => {
-    const client = new LedgerMem({
+  it('throws MnemoHTTPError with status + body on non-2xx', async () => {
+    const client = new Mnemo({
       apiKey: 'test',
       workspaceId: 'ws_test',
       fetch: fakeFetch(
@@ -85,19 +85,19 @@ describe('LedgerMem', () => {
       ),
     })
     await expect(client.search({ query: 'x' })).rejects.toMatchObject({
-      name: 'LedgerMemHTTPError',
+      name: 'MnemoHTTPError',
       status: 401,
     })
     try {
       await client.search({ query: 'x' })
     } catch (err) {
-      expect(err).toBeInstanceOf(LedgerMemHTTPError)
-      expect((err as LedgerMemHTTPError).status).toBe(401)
+      expect(err).toBeInstanceOf(MnemoHTTPError)
+      expect((err as MnemoHTTPError).status).toBe(401)
     }
   })
 
   it('update() requires content or metadata', async () => {
-    const client = new LedgerMem({
+    const client = new Mnemo({
       apiKey: 'test',
       workspaceId: 'ws_test',
       fetch: fakeFetch(() => new Response('{}', { status: 200 })),

@@ -1,5 +1,5 @@
 /**
- * Public types for the LedgerMem SDK.
+ * Public types for the Mnemo SDK.
  *
  * These mirror the REST API response shapes one-to-one. We deliberately keep
  * them as plain interfaces (no zod runtime cost) — runtime validation is the
@@ -41,13 +41,13 @@ export type PaginatedMemories = {
 }
 
 export type ClientConfig = {
-  /** Required. Get one at https://app.proofly.dev/settings/api-keys. */
+  /** Required. Get one at https://app.getmnemo.xyz/settings/api-keys. */
   apiKey: string
   /** Required. Workspace ID from the dashboard URL. */
   workspaceId: string
   /** Optional default actor scope for all calls (overridable per-method). */
   actorId?: string
-  /** Defaults to https://api.proofly.dev. */
+  /** Defaults to https://api.getmnemo.xyz. */
   baseUrl?: string
   /** Per-request timeout in ms (default 30s). */
   timeoutMs?: number

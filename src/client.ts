@@ -1,16 +1,16 @@
 /**
- * LedgerMem Memory client.
+ * Mnemo Memory client.
  *
  * Zero runtime dependencies — uses the global `fetch` (Node 18+, Bun, browsers,
  * Cloudflare Workers, Deno, etc).
  *
  * @example
  * ```ts
- * import { LedgerMem } from '@ledgermem/memory'
+ * import { Mnemo } from '@getmnemo/memory'
  *
- * const memory = new LedgerMem({
- *   apiKey: process.env.LEDGERMEM_API_KEY!,
- *   workspaceId: process.env.LEDGERMEM_WORKSPACE_ID!,
+ * const memory = new Mnemo({
+ *   apiKey: process.env.GETMNEMO_API_KEY!,
+ *   workspaceId: process.env.GETMNEMO_WORKSPACE_ID!,
  * })
  *
  * await memory.add({ content: 'User prefers Japanese rice.' })
@@ -18,7 +18,7 @@
  * ```
  */
 
-import { LedgerMemHTTPError, LedgerMemTimeoutError } from './errors.js'
+import { MnemoHTTPError, MnemoTimeoutError } from './errors.js'
 import type {
   ClientConfig,
   Memory,
@@ -26,10 +26,10 @@ import type {
   SearchResponse,
 } from './types.js'
 
-const DEFAULT_BASE_URL = 'https://api.proofly.dev'
+const DEFAULT_BASE_URL = 'https://api.getmnemo.xyz'
 const DEFAULT_TIMEOUT_MS = 30_000
 const SDK_VERSION = '0.1.0'
-const USER_AGENT = `@ledgermem/memory/${SDK_VERSION}`
+const USER_AGENT = `@getmnemo/memory/${SDK_VERSION}`
 const DEFAULT_MAX_RETRIES = 3
 const RETRY_BASE_DELAY_MS = 200
 const RETRY_MAX_DELAY_MS = 5_000
@@ -81,7 +81,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export class LedgerMem {
+export class Mnemo {
   readonly #baseUrl: string
   readonly #headers: Record<string, string>
   readonly #fetch: typeof fetch
@@ -90,8 +90,8 @@ export class LedgerMem {
   readonly #defaultActorId: string | undefined
 
   constructor(cfg: ClientConfig) {
-    if (!cfg.apiKey) throw new Error('LedgerMem: apiKey is required')
-    if (!cfg.workspaceId) throw new Error('LedgerMem: workspaceId is required')
+    if (!cfg.apiKey) throw new Error('Mnemo: apiKey is required')
+    if (!cfg.workspaceId) throw new Error('Mnemo: workspaceId is required')
     this.#baseUrl = (cfg.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     this.#headers = {
       authorization: `Bearer ${cfg.apiKey}`,
@@ -99,10 +99,10 @@ export class LedgerMem {
       'content-type': 'application/json',
     }
     // `user-agent` is on the forbidden header list in browsers — setting it
-    // via fetch is silently dropped or throws. Send `x-ledgermem-client` as
+    // via fetch is silently dropped or throws. Send `x-getmnemo-client` as
     // an SDK identifier in browsers, and the standard User-Agent on Node.
     if (IS_BROWSER_LIKE) {
-      this.#headers['x-ledgermem-client'] = USER_AGENT
+      this.#headers['x-getmnemo-client'] = USER_AGENT
     } else {
       this.#headers['user-agent'] = USER_AGENT
     }
@@ -142,7 +142,7 @@ export class LedgerMem {
     input: { content?: string; metadata?: Record<string, unknown> },
   ): Promise<Memory> {
     if (input.content === undefined && input.metadata === undefined) {
-      throw new Error('LedgerMem.update: at least one of content/metadata must be provided')
+      throw new Error('Mnemo.update: at least one of content/metadata must be provided')
     }
     return this.#request<Memory>('PATCH', `/v1/memories/${encodeURIComponent(id)}`, input)
   }
@@ -202,14 +202,14 @@ export class LedgerMem {
             (parsed && typeof parsed === 'object' && 'message' in parsed
               ? String((parsed as { message: unknown }).message)
               : null) ?? `HTTP ${res.status} ${res.statusText}`
-          throw new LedgerMemHTTPError(message, res.status, parsed)
+          throw new MnemoHTTPError(message, res.status, parsed)
         }
         return parsed as T
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
-          throw new LedgerMemTimeoutError(this.#timeoutMs)
+          throw new MnemoTimeoutError(this.#timeoutMs)
         }
-        if (err instanceof LedgerMemHTTPError) throw err
+        if (err instanceof MnemoHTTPError) throw err
         lastErr = err
         if (attempt < this.#maxRetries) {
           await sleep(retryDelayMs(attempt))
@@ -220,7 +220,7 @@ export class LedgerMem {
         clearTimeout(timer)
       }
     }
-    throw lastErr ?? new Error('LedgerMem: request failed')
+    throw lastErr ?? new Error('Mnemo: request failed')
   }
 }
 

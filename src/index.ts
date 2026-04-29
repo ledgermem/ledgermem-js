@@ -1,8 +1,8 @@
-export { LedgerMem } from './client.js'
+export { Mnemo } from './client.js'
 export {
-  LedgerMemError,
-  LedgerMemHTTPError,
-  LedgerMemTimeoutError,
+  MnemoError,
+  MnemoHTTPError,
+  MnemoTimeoutError,
 } from './errors.js'
 export type {
   ClientConfig,
