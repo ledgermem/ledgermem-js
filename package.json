@@ -1,5 +1,5 @@
 {
-  "name": "@getmnemo/memory",
+  "name": "@mnemo/memory",
   "version": "0.1.0",
   "description": "Official TypeScript / JavaScript SDK for Mnemo Memory — long-term memory infrastructure for AI agents.",
   "type": "module",
