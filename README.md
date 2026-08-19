@@ -285,13 +285,21 @@ YouTube evidence links; it does not copy or retain the video itself.
 
 ## Read and update memories
 
-```ts
-const memory = await mnemo.get('mem_123')
+Addressing a memory by id needs a container, exactly like `list`. Pass
+`containerTag` or `scope` per call, or set `defaultContainerTag` on the client
+and omit it everywhere:
 
-await mnemo.update(memory.id, {
-  content: 'Jane now prefers brown rice.',
-  metadata: { changedBy: 'user' },
-})
+```ts
+const memory = await mnemo.get('mem_123', { containerTag: 'user:jane' })
+
+await mnemo.update(
+  memory.id,
+  {
+    content: 'Jane now prefers brown rice.',
+    metadata: { changedBy: 'user' },
+  },
+  { containerTag: 'user:jane' },
+)
 
 const page = await mnemo.list({
   containerTag: 'user:jane',
@@ -301,12 +309,26 @@ const page = await mnemo.list({
 console.log(page.items, page.nextCursor)
 ```
 
+A structured scope works too, and the client's `defaultContainerTag` fills in
+whenever a call passes no container of its own:
+
+```ts
+await mnemo.get('mem_123', { scope: { type: 'customer', id: 'acme' } })
+
+const scoped = new Mnemo({
+  apiKey: process.env.GETMNEMO_API_KEY!,
+  defaultContainerTag: 'user:jane',
+})
+
+await scoped.get('mem_123') // containerTag=user:jane is sent for you
+```
+
 ## Delete and restore memories
 
 Deletion is recoverable when recovery is enabled for the workspace:
 
 ```ts
-const deleted = await mnemo.delete('mem_123')
+const deleted = await mnemo.delete('mem_123', { containerTag: 'user:jane' })
 
 console.log(deleted.receipt?.restorableUntil)
 
@@ -316,7 +338,7 @@ await mnemo.restore('mem_123')
 Skip the recovery window only when permanent deletion is intentional:
 
 ```ts
-await mnemo.delete('mem_123', { permanent: true })
+await mnemo.delete('mem_123', { permanent: true, containerTag: 'user:jane' })
 ```
 
 ## Protect important memories
@@ -432,10 +454,10 @@ key or a server proxy when a key may reach client code.
 | `listWorkspaceExports()` | List export jobs for the current API-key workspace. |
 | `getWorkspaceExport(exportId)` | Read one export job and its download URL. |
 | `search(input)` | Search memories, documents, or both. |
-| `get(memoryId)` | Get one memory. |
+| `get(memoryId, options?)` | Get one memory in an explicit or default container. |
 | `list(input)` | List memories in one explicit or default scope. |
-| `update(memoryId, input)` | Update one memory. |
-| `delete(memoryId, options?)` | Delete one memory. |
+| `update(memoryId, input, options?)` | Update one memory in an explicit or default container. |
+| `delete(memoryId, options?)` | Delete one memory in an explicit or default container. |
 | `restore(memoryId)` | Restore a recoverable deletion. |
 | `protect(memoryId)` | Require privileged mutation scopes for a memory. |
 | `unprotect(memoryId)` | Return a memory to the standard mutation policy. |

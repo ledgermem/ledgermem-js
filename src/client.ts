@@ -34,6 +34,7 @@ import type {
   ListMemoriesInput,
   Memory,
   MemoryMutationPolicy,
+  MemoryScopeOptions,
   PaginatedMemories,
   ProfileInput,
   ProfileResponse,
@@ -47,7 +48,7 @@ import type {
 
 const DEFAULT_BASE_URL = 'https://api.mnemohq.com'
 const DEFAULT_TIMEOUT_MS = 30_000
-const SDK_VERSION = '0.5.0'
+const SDK_VERSION = '0.5.1'
 const DEFAULT_SEARCH_LIMIT = 8
 const USER_AGENT = `getmnemo/${SDK_VERSION}`
 const DEFAULT_MAX_RETRIES = 3
@@ -156,6 +157,43 @@ export class Mnemo {
       `Mnemo.${method}: a container is required — pass containerTag (e.g. "user:jane") ` +
         'or scope ({ type, id }) per call, or set defaultContainerTag on the client.',
     )
+  }
+
+  /**
+   * Serialize a container onto the query string of a by-id memory route.
+   *
+   * Precedence matches `list()`: legacy `scopeType`+`scopeId` first, then
+   * `scope`, then `containerTag`, then the client's `defaultContainerTag`.
+   *
+   * Unlike `#resolveContainer` this does not throw when nothing resolves — the
+   * by-id routes stay callable without a container so existing code keeps its
+   * current behaviour and the API remains the single source of truth on
+   * whether a container is mandatory.
+   */
+  #appendScopeParams(
+    method: string,
+    params: URLSearchParams,
+    input: MemoryScopeOptions,
+  ): void {
+    if (input.scopeType !== undefined || input.scopeId !== undefined) {
+      if (!input.scopeType || !input.scopeId) {
+        throw new Error(
+          `Mnemo.${method}: legacy scopeType and scopeId must be supplied together`,
+        )
+      }
+      params.set('scopeType', input.scopeType)
+      params.set('scopeId', input.scopeId)
+      return
+    }
+    if (input.scope) {
+      params.set('scopeType', input.scope.type)
+      params.set('scopeId', input.scope.id)
+      return
+    }
+    const tag = input.containerTag ?? this.#defaultContainerTag
+    // Truthiness, not `!== undefined`, so an empty string is treated as "no
+    // container" exactly as `#resolveContainer` does — never sent as blank.
+    if (tag) params.set('containerTag', tag)
   }
 
   /**
@@ -274,6 +312,7 @@ export class Mnemo {
   async update(
     memoryId: string,
     input: UpdateMemoryInput,
+    options: MemoryScopeOptions = {},
   ): Promise<Memory> {
     if (
       input.content === undefined &&
@@ -285,16 +324,29 @@ export class Mnemo {
         'Mnemo.update: at least one of content/memoryType/metadata/source must be provided',
       )
     }
+    const params = new URLSearchParams()
+    this.#appendScopeParams('update', params, options)
+    const qs = params.toString()
     return this.#request<Memory>(
       'PATCH',
-      `/v1/memories/${encodeURIComponent(memoryId)}`,
+      `/v1/memories/${encodeURIComponent(memoryId)}${qs ? `?${qs}` : ''}`,
       input,
     )
   }
 
-  /** Fetch a single memory by id. Sends `GET /v1/memories/{memoryId}`. */
-  async get(memoryId: string): Promise<Memory> {
-    return this.#request<Memory>('GET', `/v1/memories/${encodeURIComponent(memoryId)}`)
+  /**
+   * Fetch a single memory by id. Sends `GET /v1/memories/{memoryId}` with the
+   * container on the query string — pass `containerTag` or `scope`, or set
+   * `defaultContainerTag` on the client.
+   */
+  async get(memoryId: string, options: MemoryScopeOptions = {}): Promise<Memory> {
+    const params = new URLSearchParams()
+    this.#appendScopeParams('get', params, options)
+    const qs = params.toString()
+    return this.#request<Memory>(
+      'GET',
+      `/v1/memories/${encodeURIComponent(memoryId)}${qs ? `?${qs}` : ''}`,
+    )
   }
 
   /**
@@ -330,10 +382,13 @@ export class Mnemo {
     memoryId: string,
     options: DeleteMemoryOptions = {},
   ): Promise<DeleteMemoryResponse> {
-    const query = options.permanent === true ? '?permanent=true' : ''
+    const params = new URLSearchParams()
+    if (options.permanent === true) params.set('permanent', 'true')
+    this.#appendScopeParams('delete', params, options)
+    const qs = params.toString()
     return this.#request<DeleteMemoryResponse>(
       'DELETE',
-      `/v1/memories/${encodeURIComponent(memoryId)}${query}`,
+      `/v1/memories/${encodeURIComponent(memoryId)}${qs ? `?${qs}` : ''}`,
     )
   }
 

@@ -661,6 +661,62 @@ describe('Mnemo', () => {
         source: { provider: 'notion', pageId: 'p1' },
       })
     })
+
+    it('sends an explicit containerTag as a query param, not in the body', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        fetch: fakeFetch(async (req) => {
+          const url = new URL(req.url)
+          expect(url.searchParams.get('containerTag')).toBe('user:jane')
+          // The PATCH body is forwarded verbatim to the API, which rejects
+          // unknown properties — the container must stay on the query string.
+          expect(await req.json()).toEqual({ content: 'new' })
+          return json({ id: 'mem_1' })
+        }),
+      })
+      await client.update('mem_1', { content: 'new' }, { containerTag: 'user:jane' })
+    })
+
+    it('sends a structured scope as scopeType and scopeId', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        fetch: fakeFetch((req) => {
+          const url = new URL(req.url)
+          expect(url.searchParams.get('scopeType')).toBe('customer')
+          expect(url.searchParams.get('scopeId')).toBe('acme')
+          expect(url.searchParams.get('containerTag')).toBeNull()
+          return json({ id: 'mem_1' })
+        }),
+      })
+      await client.update(
+        'mem_1',
+        { content: 'new' },
+        { scope: { type: 'customer', id: 'acme' } },
+      )
+    })
+
+    it('falls back to defaultContainerTag', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        defaultContainerTag: 'user:jane',
+        fetch: fakeFetch((req) => {
+          expect(new URL(req.url).searchParams.get('containerTag')).toBe('user:jane')
+          return json({ id: 'mem_1' })
+        }),
+      })
+      await client.update('mem_1', { content: 'new' })
+    })
+
+    it('sends no container params when none is available', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        fetch: fakeFetch((req) => {
+          expect(new URL(req.url).search).toBe('')
+          return json({ id: 'mem_1' })
+        }),
+      })
+      await client.update('mem_1', { content: 'new' })
+    })
   })
 
   describe('get', () => {
@@ -676,6 +732,78 @@ describe('Mnemo', () => {
       })
       const res = await client.get('mem_1')
       expect(res.id).toBe('mem_1')
+    })
+
+    it('sends an explicit containerTag as a query param', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        fetch: fakeFetch((req) => {
+          const url = new URL(req.url)
+          expect(url.pathname).toBe('/v1/memories/mem_1')
+          expect(url.searchParams.get('containerTag')).toBe('user:jane')
+          return json({ id: 'mem_1' })
+        }),
+      })
+      await client.get('mem_1', { containerTag: 'user:jane' })
+    })
+
+    it('sends a structured scope as scopeType and scopeId', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        fetch: fakeFetch((req) => {
+          const url = new URL(req.url)
+          expect(url.searchParams.get('scopeType')).toBe('customer')
+          expect(url.searchParams.get('scopeId')).toBe('acme')
+          return json({ id: 'mem_1' })
+        }),
+      })
+      await client.get('mem_1', { scope: { type: 'customer', id: 'acme' } })
+    })
+
+    it('falls back to defaultContainerTag', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        defaultContainerTag: 'user:jane',
+        fetch: fakeFetch((req) => {
+          expect(new URL(req.url).searchParams.get('containerTag')).toBe('user:jane')
+          return json({ id: 'mem_1' })
+        }),
+      })
+      await client.get('mem_1')
+    })
+
+    it('prefers an explicit container over defaultContainerTag', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        defaultContainerTag: 'user:jane',
+        fetch: fakeFetch((req) => {
+          expect(new URL(req.url).searchParams.get('containerTag')).toBe('user:bob')
+          return json({ id: 'mem_1' })
+        }),
+      })
+      await client.get('mem_1', { containerTag: 'user:bob' })
+    })
+
+    it('sends no container params when none is available', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        fetch: fakeFetch((req) => {
+          expect(new URL(req.url).search).toBe('')
+          return json({ id: 'mem_1' })
+        }),
+      })
+      await client.get('mem_1')
+    })
+
+    it('never sends a blank containerTag', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        fetch: fakeFetch((req) => {
+          expect(new URL(req.url).search).toBe('')
+          return json({ id: 'mem_1' })
+        }),
+      })
+      await client.get('mem_1', { containerTag: '' })
     })
   })
 
@@ -716,6 +844,72 @@ describe('Mnemo', () => {
         }),
       })
       await client.delete('mem_1', { permanent: true })
+    })
+
+    it('sends an explicit containerTag alongside permanent', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        fetch: fakeFetch((req) => {
+          const url = new URL(req.url)
+          expect(url.pathname).toBe('/v1/memories/mem_1')
+          expect(url.searchParams.get('permanent')).toBe('true')
+          expect(url.searchParams.get('containerTag')).toBe('user:jane')
+          return json({ id: 'mem_1', deleted: true })
+        }),
+      })
+      await client.delete('mem_1', { permanent: true, containerTag: 'user:jane' })
+    })
+
+    it('sends a structured scope as scopeType and scopeId', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        fetch: fakeFetch((req) => {
+          const url = new URL(req.url)
+          expect(url.searchParams.get('scopeType')).toBe('customer')
+          expect(url.searchParams.get('scopeId')).toBe('acme')
+          expect(url.searchParams.get('permanent')).toBeNull()
+          return json({ id: 'mem_1', deleted: true })
+        }),
+      })
+      await client.delete('mem_1', { scope: { type: 'customer', id: 'acme' } })
+    })
+
+    it('supports the legacy scopeType and scopeId pair', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        defaultContainerTag: 'user:jane',
+        fetch: fakeFetch((req) => {
+          const url = new URL(req.url)
+          expect(url.searchParams.get('scopeType')).toBe('customer')
+          expect(url.searchParams.get('scopeId')).toBe('acme')
+          // The legacy pair wins outright — no container tag tags along.
+          expect(url.searchParams.get('containerTag')).toBeNull()
+          return json({ id: 'mem_1', deleted: true })
+        }),
+      })
+      await client.delete('mem_1', { scopeType: 'customer', scopeId: 'acme' })
+    })
+
+    it('rejects a half-supplied legacy scope pair', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        fetch: fakeFetch(() => json({ id: 'mem_1', deleted: true })),
+      })
+      await expect(
+        client.delete('mem_1', { scopeType: 'customer' }),
+      ).rejects.toThrow(/must be supplied together/)
+    })
+
+    it('falls back to defaultContainerTag', async () => {
+      const client = new Mnemo({
+        apiKey: 'test',
+        defaultContainerTag: 'user:jane',
+        fetch: fakeFetch((req) => {
+          expect(new URL(req.url).searchParams.get('containerTag')).toBe('user:jane')
+          return json({ id: 'mem_1', deleted: true })
+        }),
+      })
+      await client.delete('mem_1')
     })
   })
 
