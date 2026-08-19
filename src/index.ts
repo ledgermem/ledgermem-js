@@ -37,6 +37,7 @@ export type {
   ListMemoriesInput,
   Memory,
   MemoryItemInput,
+  MemoryScopeOptions,
   PaginatedDocuments,
   PaginatedMemories,
   ProfileDynamicItem,

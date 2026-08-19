@@ -114,7 +114,23 @@ export type UpdateMemoryProtectionInput = {
   mutationPolicy: MemoryMutationPolicy
 }
 
-export type DeleteMemoryOptions = {
+/**
+ * Container selector for the by-id memory routes (`get`, `update`, `delete`).
+ *
+ * The API requires a container on direct memory access and rejects the call
+ * with 400 otherwise. Pass `containerTag` (e.g. `"user:jane"`) or `scope`, or
+ * set `defaultContainerTag` on the client to cover every call at once.
+ */
+export type MemoryScopeOptions = {
+  containerTag?: string
+  scope?: Scope
+  /** @deprecated Use scope instead. */
+  scopeType?: string
+  /** @deprecated Use scope instead. */
+  scopeId?: string
+}
+
+export type DeleteMemoryOptions = MemoryScopeOptions & {
   permanent?: boolean
 }
 
