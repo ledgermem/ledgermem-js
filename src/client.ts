@@ -19,8 +19,11 @@
  */
 
 import { MnemoHTTPError, MnemoTimeoutError } from './errors.js'
+import { BriefResource } from './personal/brief.js'
+import { MeetingsResource } from './personal/meetings.js'
 import { PeopleResource } from './personal/people.js'
 import { RemindersResource } from './personal/reminders.js'
+import { TimelineResource } from './personal/timeline.js'
 import {
   DocumentsResource,
   JobsResource,
@@ -114,6 +117,12 @@ export class Mnemo {
   readonly people: PeopleResource
   /** Reminders: due-dated memories in any container. Needs `reminders:*` scopes. */
   readonly reminders: RemindersResource
+  /** Timeline: merged memory/document/event stream per container. Needs `timeline:read`. */
+  readonly timeline: TimelineResource
+  /** Daily Brief for one container. Needs `brief:read`. */
+  readonly brief: BriefResource
+  /** Meeting Memory over connected calendars. Needs `meetings:read`. */
+  readonly meetings: MeetingsResource
 
   constructor(cfg: ClientConfig) {
     if (!cfg.apiKey) throw new Error('Mnemo: apiKey is required')
@@ -147,6 +156,9 @@ export class Mnemo {
     this.youtube = new YouTubeResource(request, resolveContainer)
     this.people = new PeopleResource(request)
     this.reminders = new RemindersResource(request, resolveContainer)
+    this.timeline = new TimelineResource(request, resolveContainer)
+    this.brief = new BriefResource(request, resolveContainer)
+    this.meetings = new MeetingsResource(request)
   }
 
   /**

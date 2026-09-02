@@ -6,15 +6,30 @@ export {
 } from './resources.js'
 export { PeopleResource } from './personal/people.js'
 export { RemindersResource } from './personal/reminders.js'
+export { TimelineResource } from './personal/timeline.js'
+export { BriefResource } from './personal/brief.js'
+export { MeetingsResource } from './personal/meetings.js'
 export type {
   AnswerCitation,
   ArchivePersonOptions,
   ArchivePersonResponse,
+  BriefFollowUps,
+  BriefInput,
+  BriefSection,
   CreatePersonInput,
   CreateReminderInput,
+  DailyBrief,
+  GetBriefInput,
   ImportantDate,
   ListPeopleInput,
   ListRemindersInput,
+  Meeting,
+  MeetingAttendee,
+  MeetingBrief,
+  MeetingBriefOptions,
+  MeetingBriefPerson,
+  MeetingConnection,
+  MeetingPersonRef,
   PaginatedPeople,
   PaginatedReminders,
   Person,
@@ -27,6 +42,15 @@ export type {
   ReminderPerson,
   ReminderStatus,
   ReopenReminderInput,
+  Timeline,
+  TimelineContainer,
+  TimelineDirection,
+  TimelineInput,
+  TimelineItem,
+  TimelineItemMeta,
+  TimelineItemType,
+  UpcomingMeetings,
+  UpcomingMeetingsInput,
   UpcomingReminders,
   UpcomingRemindersInput,
   UpdatePersonInput,
