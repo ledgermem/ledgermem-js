@@ -20,7 +20,9 @@
 
 import { MnemoHTTPError, MnemoTimeoutError } from './errors.js'
 import { BriefResource } from './personal/brief.js'
+import { InboundResource } from './personal/inbound.js'
 import { MeetingsResource } from './personal/meetings.js'
+import { MemoriesResource } from './personal/memories.js'
 import { PeopleResource } from './personal/people.js'
 import { RemindersResource } from './personal/reminders.js'
 import { TimelineResource } from './personal/timeline.js'
@@ -123,6 +125,10 @@ export class Mnemo {
   readonly brief: BriefResource
   /** Meeting Memory over connected calendars. Needs `meetings:read`. */
   readonly meetings: MeetingsResource
+  /** Inbound capture channels (WhatsApp / SMS). Needs `inbound:*` scopes. */
+  readonly inbound: InboundResource
+  /** Extra memory operations, e.g. `memories.merge()`. */
+  readonly memories: MemoriesResource
 
   constructor(cfg: ClientConfig) {
     if (!cfg.apiKey) throw new Error('Mnemo: apiKey is required')
@@ -159,6 +165,8 @@ export class Mnemo {
     this.timeline = new TimelineResource(request, resolveContainer)
     this.brief = new BriefResource(request, resolveContainer)
     this.meetings = new MeetingsResource(request)
+    this.inbound = new InboundResource(request)
+    this.memories = new MemoriesResource(request, resolveContainer)
   }
 
   /**

@@ -9,6 +9,11 @@ export { RemindersResource } from './personal/reminders.js'
 export { TimelineResource } from './personal/timeline.js'
 export { BriefResource } from './personal/brief.js'
 export { MeetingsResource } from './personal/meetings.js'
+export {
+  InboundChannelsResource,
+  InboundResource,
+} from './personal/inbound.js'
+export { MemoriesResource } from './personal/memories.js'
 export type {
   AnswerCitation,
   ArchivePersonOptions,
@@ -16,11 +21,16 @@ export type {
   BriefFollowUps,
   BriefInput,
   BriefSection,
+  CreateInboundChannelInput,
   CreatePersonInput,
   CreateReminderInput,
   DailyBrief,
+  DeleteInboundChannelResponse,
   GetBriefInput,
   ImportantDate,
+  InboundChannel,
+  InboundChannelStatus,
+  ListInboundChannelsInput,
   ListPeopleInput,
   ListRemindersInput,
   Meeting,
@@ -30,6 +40,9 @@ export type {
   MeetingBriefPerson,
   MeetingConnection,
   MeetingPersonRef,
+  MergeMemoriesInput,
+  MergeMemoriesResponse,
+  PaginatedInboundChannels,
   PaginatedPeople,
   PaginatedReminders,
   Person,
@@ -53,6 +66,7 @@ export type {
   UpcomingMeetingsInput,
   UpcomingReminders,
   UpcomingRemindersInput,
+  UpdateInboundChannelInput,
   UpdatePersonInput,
   UpdateReminderInput,
 } from './personal/types.js'
