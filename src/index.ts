@@ -4,6 +4,34 @@ export {
   JobsResource,
   YouTubeResource,
 } from './resources.js'
+export { PeopleResource } from './personal/people.js'
+export { RemindersResource } from './personal/reminders.js'
+export type {
+  AnswerCitation,
+  ArchivePersonOptions,
+  ArchivePersonResponse,
+  CreatePersonInput,
+  CreateReminderInput,
+  ImportantDate,
+  ListPeopleInput,
+  ListRemindersInput,
+  PaginatedPeople,
+  PaginatedReminders,
+  Person,
+  PersonContactFields,
+  PersonImportantDate,
+  PersonSummary,
+  PersonSummaryOptions,
+  Reminder,
+  ReminderBuckets,
+  ReminderPerson,
+  ReminderStatus,
+  ReopenReminderInput,
+  UpcomingReminders,
+  UpcomingRemindersInput,
+  UpdatePersonInput,
+  UpdateReminderInput,
+} from './personal/types.js'
 export {
   MnemoError,
   MnemoHTTPError,

@@ -19,6 +19,8 @@
  */
 
 import { MnemoHTTPError, MnemoTimeoutError } from './errors.js'
+import { PeopleResource } from './personal/people.js'
+import { RemindersResource } from './personal/reminders.js'
 import {
   DocumentsResource,
   JobsResource,
@@ -108,6 +110,10 @@ export class Mnemo {
   readonly documents: DocumentsResource
   readonly jobs: JobsResource
   readonly youtube: YouTubeResource
+  /** People: one memory container per person. Needs `people:*` scopes. */
+  readonly people: PeopleResource
+  /** Reminders: due-dated memories in any container. Needs `reminders:*` scopes. */
+  readonly reminders: RemindersResource
 
   constructor(cfg: ClientConfig) {
     if (!cfg.apiKey) throw new Error('Mnemo: apiKey is required')
@@ -139,6 +145,8 @@ export class Mnemo {
     this.documents = new DocumentsResource(request, resolveContainer)
     this.jobs = new JobsResource(request)
     this.youtube = new YouTubeResource(request, resolveContainer)
+    this.people = new PeopleResource(request)
+    this.reminders = new RemindersResource(request, resolveContainer)
   }
 
   /**
