@@ -26,6 +26,7 @@ import { MemoriesResource } from './personal/memories.js'
 import { PeopleResource } from './personal/people.js'
 import { RemindersResource } from './personal/reminders.js'
 import { TimelineResource } from './personal/timeline.js'
+import type { RequestOptions } from './request.js'
 import {
   DocumentsResource,
   JobsResource,
@@ -150,8 +151,12 @@ export class Mnemo {
     this.#timeoutMs = cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS
     this.#maxRetries = Math.max(0, cfg.maxRetries ?? DEFAULT_MAX_RETRIES)
 
-    const request = <T>(method: string, path: string, body?: unknown): Promise<T> =>
-      this.#request<T>(method, path, body)
+    const request = <T>(
+      method: string,
+      path: string,
+      body?: unknown,
+      options?: RequestOptions,
+    ): Promise<T> => this.#request<T>(method, path, body, options)
     const resolveContainer = (
       method: string,
       input: { containerTag?: string; scope?: Scope },
@@ -494,7 +499,7 @@ export class Mnemo {
     method: string,
     path: string,
     body?: unknown,
-    options: { retryAmbiguousFailure?: boolean } = {},
+    options: RequestOptions = {},
   ): Promise<T> {
     const serializedBody = body === undefined ? undefined : JSON.stringify(body)
     let lastErr: unknown

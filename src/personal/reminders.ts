@@ -29,6 +29,10 @@ export class RemindersResource {
   /**
    * `POST /v1/reminders`. Exactly one target is sent: `personSlug`, `scope`,
    * `containerTag`, or the client's `defaultContainerTag` (in that order).
+   *
+   * A timeout or dropped connection is only retried when `idempotencyKey` is
+   * set — without it the server has no dedup key and a retry could create a
+   * duplicate reminder.
    */
   async create(input: CreateReminderInput): Promise<Reminder> {
     const {
@@ -41,10 +45,12 @@ export class RemindersResource {
       personSlug !== undefined
         ? { personSlug }
         : this.resolveContainer('reminders.create', input)
-    return this.request<Reminder>('POST', '/v1/reminders', {
-      ...reminder,
-      ...target,
-    })
+    return this.request<Reminder>(
+      'POST',
+      '/v1/reminders',
+      { ...reminder, ...target },
+      { retryAmbiguousFailure: Boolean(input.idempotencyKey) },
+    )
   }
 
   /**

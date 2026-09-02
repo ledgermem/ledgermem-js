@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { Mnemo } from '../index.js'
 import type { Reminder } from '../index.js'
-import { capture } from '../test-helpers.js'
+import { capture, fakeFetch, json } from '../test-helpers.js'
 
 const REMINDER: Reminder = {
   id: 'mem_1',
@@ -80,6 +80,45 @@ describe('Mnemo.reminders', () => {
       await expect(
         bare.reminders.create({ content: 'x', dueAt: '2026-09-10T09:00:00.000Z' }),
       ).rejects.toThrow(/container is required/)
+    })
+
+    it('does not retry an ambiguous transport failure without an idempotency key', async () => {
+      let calls = 0
+      const client = new Mnemo({
+        apiKey: 'k',
+        defaultContainerTag: 'user:me',
+        maxRetries: 2,
+        fetch: fakeFetch(() => {
+          calls += 1
+          throw new TypeError('connection reset after write')
+        }),
+      })
+      await expect(
+        client.reminders.create({ content: 'x', dueAt: '2026-09-10T09:00:00.000Z' }),
+      ).rejects.toThrow(/connection reset/i)
+      expect(calls).toBe(1)
+    })
+
+    it('retries an ambiguous transport failure when an idempotency key is set', async () => {
+      let calls = 0
+      const client = new Mnemo({
+        apiKey: 'k',
+        defaultContainerTag: 'user:me',
+        maxRetries: 1,
+        fetch: fakeFetch(() => {
+          calls += 1
+          if (calls === 1) throw new TypeError('connection reset after write')
+          return json(REMINDER, 201)
+        }),
+      })
+      await expect(
+        client.reminders.create({
+          content: 'x',
+          dueAt: '2026-09-10T09:00:00.000Z',
+          idempotencyKey: 'deck-1',
+        }),
+      ).resolves.toMatchObject({ id: 'mem_1' })
+      expect(calls).toBe(2)
     })
   })
 

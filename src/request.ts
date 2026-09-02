@@ -1,10 +1,19 @@
 import type { Scope } from './types.js'
 
+/**
+ * Per-request transport options. `retryAmbiguousFailure` controls whether a
+ * timeout or dropped connection (the server may already have applied the
+ * write) is retried: `true` retries, `false` never retries, `undefined`
+ * keeps the transport default (retry transport errors, not timeouts).
+ */
+export type RequestOptions = { retryAmbiguousFailure?: boolean }
+
 /** Sends one JSON request against the API. Bound to the client's transport. */
 export type Requester = <T>(
   method: string,
   path: string,
   body?: unknown,
+  options?: RequestOptions,
 ) => Promise<T>
 
 export type ContainerInput = { containerTag?: string; scope?: Scope }
