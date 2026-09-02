@@ -22,6 +22,33 @@ export type MemoryMutationPolicy = 'standard' | 'privileged'
 export type EnrichmentMode = 'sync' | 'deferred' | 'skip'
 export type YouTubeIngestionMode = 'transcript' | 'transcript_and_visuals'
 
+/** Who wrote a memory. Stamped by the server; never client-settable. */
+export type MemoryOriginKind =
+  | 'api_key'
+  | 'mcp'
+  | 'user'
+  | 'connector'
+  | 'inbound'
+  | 'system'
+
+export type MemoryProvenance = {
+  kind: MemoryOriginKind
+  /** API key id, MCP grant id, user id, connector connection id or inbound channel id. */
+  id: string | null
+  /** Short human label: API key name, MCP client name, connector provider, "whatsapp" / "sms". */
+  label: string | null
+}
+
+export type MemoryType =
+  | 'memory'
+  | 'preference'
+  | 'fact'
+  | 'observation'
+  | 'event'
+  | 'note'
+  | 'reminder'
+  | 'goal'
+
 export type Container = {
   id: string
   tag: string
@@ -45,6 +72,10 @@ export type Memory = {
   sourceDocumentId: string | null
   eventId: string | null
   deletedAt: string | null
+  /** Reminder due time; non-null only for open reminders (`memoryType: "reminder"`). */
+  dueAt: string | null
+  /** Server-stamped write provenance; null for memories written before stamping. */
+  createdBy: MemoryProvenance | null
   createdAt: string
   updatedAt: string
 }
@@ -54,6 +85,11 @@ export type MemoryItemInput = {
   content: string
   idempotencyKey?: string
   memoryType?: string
+  /**
+   * ISO 8601 due time. Setting it makes the memory a reminder: `memoryType`
+   * defaults to `"reminder"` and any other type is rejected with 400.
+   */
+  dueAt?: string
   mutationPolicy?: MemoryMutationPolicy
   metadata?: Record<string, unknown>
   source?: Source
@@ -108,6 +144,8 @@ export type UpdateMemoryInput = {
   memoryType?: string
   metadata?: Record<string, unknown> | null
   source?: Source | null
+  /** Omit to leave unchanged; `null` clears it (completes a reminder). */
+  dueAt?: string | null
 }
 
 export type UpdateMemoryProtectionInput = {
@@ -231,6 +269,14 @@ export type ListMemoriesInput = {
   scope?: Scope
   limit?: number
   cursor?: string
+  /** Only memories created at or after this ISO 8601 instant. */
+  since?: string
+  /** Only memories created at or before this ISO 8601 instant. */
+  until?: string
+  /** Only memories written by this kind of principal. */
+  createdByKind?: MemoryOriginKind
+  /** Only memories of this type. `"note"` also matches untyped `"memory"` rows. */
+  memoryType?: MemoryType
   /** @deprecated Use scope instead. */
   scopeType?: string
   /** @deprecated Use scope instead. */

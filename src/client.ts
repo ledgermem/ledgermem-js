@@ -19,6 +19,14 @@
  */
 
 import { MnemoHTTPError, MnemoTimeoutError } from './errors.js'
+import { BriefResource } from './personal/brief.js'
+import { InboundResource } from './personal/inbound.js'
+import { MeetingsResource } from './personal/meetings.js'
+import { MemoriesResource } from './personal/memories.js'
+import { PeopleResource } from './personal/people.js'
+import { RemindersResource } from './personal/reminders.js'
+import { TimelineResource } from './personal/timeline.js'
+import type { RequestOptions } from './request.js'
 import {
   DocumentsResource,
   JobsResource,
@@ -48,7 +56,7 @@ import type {
 
 const DEFAULT_BASE_URL = 'https://api.mnemohq.com'
 const DEFAULT_TIMEOUT_MS = 30_000
-const SDK_VERSION = '0.5.1'
+const SDK_VERSION = '0.6.0'
 const DEFAULT_SEARCH_LIMIT = 8
 const USER_AGENT = `getmnemo/${SDK_VERSION}`
 const DEFAULT_MAX_RETRIES = 3
@@ -108,6 +116,20 @@ export class Mnemo {
   readonly documents: DocumentsResource
   readonly jobs: JobsResource
   readonly youtube: YouTubeResource
+  /** People: one memory container per person. Needs `people:*` scopes. */
+  readonly people: PeopleResource
+  /** Reminders: due-dated memories in any container. Needs `reminders:*` scopes. */
+  readonly reminders: RemindersResource
+  /** Timeline: merged memory/document/event stream per container. Needs `timeline:read`. */
+  readonly timeline: TimelineResource
+  /** Daily Brief for one container. Needs `brief:read`. */
+  readonly brief: BriefResource
+  /** Meeting Memory over connected calendars. Needs `meetings:read`. */
+  readonly meetings: MeetingsResource
+  /** Inbound capture channels (WhatsApp / SMS). Needs `inbound:*` scopes. */
+  readonly inbound: InboundResource
+  /** Extra memory operations, e.g. `memories.merge()`. */
+  readonly memories: MemoriesResource
 
   constructor(cfg: ClientConfig) {
     if (!cfg.apiKey) throw new Error('Mnemo: apiKey is required')
@@ -129,8 +151,12 @@ export class Mnemo {
     this.#timeoutMs = cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS
     this.#maxRetries = Math.max(0, cfg.maxRetries ?? DEFAULT_MAX_RETRIES)
 
-    const request = <T>(method: string, path: string, body?: unknown): Promise<T> =>
-      this.#request<T>(method, path, body)
+    const request = <T>(
+      method: string,
+      path: string,
+      body?: unknown,
+      options?: RequestOptions,
+    ): Promise<T> => this.#request<T>(method, path, body, options)
     const resolveContainer = (
       method: string,
       input: { containerTag?: string; scope?: Scope },
@@ -139,6 +165,13 @@ export class Mnemo {
     this.documents = new DocumentsResource(request, resolveContainer)
     this.jobs = new JobsResource(request)
     this.youtube = new YouTubeResource(request, resolveContainer)
+    this.people = new PeopleResource(request)
+    this.reminders = new RemindersResource(request, resolveContainer)
+    this.timeline = new TimelineResource(request, resolveContainer)
+    this.brief = new BriefResource(request, resolveContainer)
+    this.meetings = new MeetingsResource(request)
+    this.inbound = new InboundResource(request)
+    this.memories = new MemoriesResource(request, resolveContainer)
   }
 
   /**
@@ -233,6 +266,7 @@ export class Mnemo {
       content,
       idempotencyKey,
       memoryType,
+      dueAt,
       mutationPolicy,
       metadata,
       source,
@@ -248,6 +282,7 @@ export class Mnemo {
           content,
           idempotencyKey,
           memoryType,
+          dueAt,
           mutationPolicy,
           metadata,
           source,
@@ -307,7 +342,8 @@ export class Mnemo {
   /**
    * Patch an existing memory by id.
    * Sends `PATCH /v1/memories/{memoryId}` with body `UpdateMemoryDto`
-   * `{ content?, memoryType?, metadata?, source? }` (none required).
+   * `{ content?, memoryType?, metadata?, source?, dueAt? }` (none required;
+   * `dueAt: null` clears a reminder's due time).
    */
   async update(
     memoryId: string,
@@ -318,10 +354,11 @@ export class Mnemo {
       input.content === undefined &&
       input.memoryType === undefined &&
       input.metadata === undefined &&
-      input.source === undefined
+      input.source === undefined &&
+      input.dueAt === undefined
     ) {
       throw new Error(
-        'Mnemo.update: at least one of content/memoryType/metadata/source must be provided',
+        'Mnemo.update: at least one of content/memoryType/metadata/source/dueAt must be provided',
       )
     }
     const params = new URLSearchParams()
@@ -403,7 +440,8 @@ export class Mnemo {
   /**
    * Cursor-paginated list of memories within one required container.
    * Sends `GET /v1/memories` with query
-   * `limit?, cursor?, scopeType+scopeId|containerTag`.
+   * `limit?, cursor?, scopeType+scopeId|containerTag, since?, until?,
+   * createdByKind?, memoryType?`.
    */
   async list(input: ListMemoriesInput = {}): Promise<PaginatedMemories> {
     const params = new URLSearchParams()
@@ -426,6 +464,12 @@ export class Mnemo {
         params.set('containerTag', container.containerTag)
       }
     }
+    if (input.since !== undefined) params.set('since', input.since)
+    if (input.until !== undefined) params.set('until', input.until)
+    if (input.createdByKind !== undefined) {
+      params.set('createdByKind', input.createdByKind)
+    }
+    if (input.memoryType !== undefined) params.set('memoryType', input.memoryType)
     const qs = params.toString()
     return this.#request<PaginatedMemories>('GET', `/v1/memories${qs ? `?${qs}` : ''}`)
   }
@@ -455,7 +499,7 @@ export class Mnemo {
     method: string,
     path: string,
     body?: unknown,
-    options: { retryAmbiguousFailure?: boolean } = {},
+    options: RequestOptions = {},
   ): Promise<T> {
     const serializedBody = body === undefined ? undefined : JSON.stringify(body)
     let lastErr: unknown

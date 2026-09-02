@@ -385,6 +385,181 @@ const context = await mnemo.profile({
 })
 ```
 
+## Personal memory
+
+Version 0.6.0 adds the personal-memory surface: people, reminders, a
+timeline, a daily brief, meetings, inbound capture and memory merge. Each
+resource needs its own API-key scope (for example `people:read`,
+`reminders:write`, `brief:read`); existing keys do not gain them
+automatically.
+
+### People
+
+One memory container per person, tagged `person:<slug>`:
+
+```ts
+const jane = await mnemo.people.create({
+  displayName: 'Jane Doe',
+  relationship: 'client',
+  email: 'jane@example.com',
+  importantDates: [{ label: 'Birthday', date: '1990-04-12', recurring: true }],
+})
+
+const page = await mnemo.people.list({ q: 'jane' })
+const person = await mnemo.people.get(jane.slug)
+
+await mnemo.people.update(jane.slug, { company: 'Acme', notes: null })
+
+// Reader answer over the person's memories, plus open reminders.
+const summary = await mnemo.people.summary(jane.slug, {
+  q: 'What matters to Jane right now?',
+})
+
+// Archive (keeps the container); optionally soft-delete its memories.
+await mnemo.people.archive(jane.slug, { deleteMemories: true })
+```
+
+Per-person memories are ordinary memories in that container:
+`mnemo.list({ containerTag: jane.tag })` or
+`mnemo.add({ containerTag: jane.tag, content: '...' })`.
+
+### Reminders
+
+A reminder is a memory with `memoryType: "reminder"` and a `dueAt`. File it
+under a person, any container, or the client's `defaultContainerTag`:
+
+```ts
+const reminder = await mnemo.reminders.create({
+  content: 'Send Jane the revised deck',
+  dueAt: '2026-09-10T09:00:00Z',
+  personSlug: 'jane-doe',
+  idempotencyKey: 'deck:v2',
+})
+
+// Open reminders, workspace-wide, ordered by due time.
+const open = await mnemo.reminders.list({ status: 'open', days: 30 })
+
+// Overdue / due today / upcoming in the caller's timezone.
+const buckets = await mnemo.reminders.upcoming({
+  days: 7,
+  timezone: 'Asia/Karachi',
+})
+
+await mnemo.reminders.update(reminder.id, { dueAt: '2026-09-11T09:00:00Z' })
+await mnemo.reminders.complete(reminder.id)
+await mnemo.reminders.reopen(reminder.id, { dueAt: '2026-09-12T09:00:00Z' })
+```
+
+`reminders.list` and `reminders.upcoming` are workspace-wide unless you pass
+`containerTag` or `containerType`; the client's `defaultContainerTag` is not
+applied to them.
+
+### Timeline
+
+A merged, newest-first stream of memories, reminders and documents for one
+container (`event` rows are opt-in):
+
+```ts
+const timeline = await mnemo.timeline.get({
+  containerTag: 'person:jane-doe',
+  from: '2026-09-01T00:00:00Z',
+  types: ['memory', 'reminder', 'document'],
+  limit: 50,
+})
+
+for (const item of timeline.items) {
+  console.log(item.occurredAt, item.type, item.title, item.createdBy?.label)
+}
+```
+
+### Daily brief
+
+Reminders due, important dates, recent captures, open follow-ups and today's
+meetings for one container:
+
+```ts
+const brief = await mnemo.brief.today({
+  containerTag: 'user:me',
+  timezone: 'Asia/Karachi',
+  sections: ['core', 'followUps'],
+})
+
+console.log(brief.reminders?.dueToday, brief.followUps?.answer)
+
+// A specific local day.
+const yesterday = await mnemo.brief.get({
+  containerTag: 'user:me',
+  date: '2026-09-01',
+})
+```
+
+### Meetings
+
+Upcoming calendar meetings (synced through a connected Google Calendar) with
+attendees matched to people, and a pre-meeting brief:
+
+```ts
+const { items, connections } = await mnemo.meetings.upcoming({ days: 3 })
+
+const meeting = await mnemo.meetings.get(items[0].documentId)
+const prep = await mnemo.meetings.brief(meeting.documentId, {
+  q: 'What did we agree last time?',
+})
+
+console.log(prep.brief?.answer, prep.people, prep.previousMeetings)
+```
+
+### Inbound capture (WhatsApp / SMS)
+
+Link a phone number so its texts and voice notes become memories. The
+verification code is returned only on `create` and `regenerateCode`; the
+phone must text it once to activate the channel:
+
+```ts
+const channel = await mnemo.inbound.channels.create({
+  phone: '+14155550100',
+  containerTag: 'user:me', // defaults to phone:<E.164>
+})
+
+console.log(channel.verificationCode, channel.inboundNumber, channel.webhookUrl)
+
+await mnemo.inbound.channels.list()
+await mnemo.inbound.channels.update(channel.id, { status: 'disabled' })
+await mnemo.inbound.channels.regenerateCode(channel.id)
+await mnemo.inbound.channels.delete(channel.id)
+```
+
+### Merge memories
+
+Fold duplicates into one survivor. With `into`, that memory keeps its id and
+the others are soft-deleted (restorable); without it a new memory is created
+from `content`. The key needs both `memories:write` and `memories:delete`:
+
+```ts
+const merged = await mnemo.memories.merge({
+  containerTag: 'user:jane',
+  ids: ['mem_1', 'mem_2'],
+  into: 'mem_1',
+})
+
+console.log(merged.memory.id, merged.deletedIds, merged.replayed)
+```
+
+### Provenance and filters
+
+Every `Memory` now reports who wrote it in `createdBy` (`api_key`, `mcp`,
+`user`, `connector`, `inbound` or `system`, with the key or client name as
+`label`) and its `dueAt`. `list()` can filter on both:
+
+```ts
+const recent = await mnemo.list({
+  containerTag: 'user:jane',
+  since: '2026-09-01T00:00:00Z',
+  createdByKind: 'inbound',
+  memoryType: 'note',
+})
+```
+
 ## Memory types
 
 `memoryType` is optional. Supported values include:
@@ -441,7 +616,10 @@ responses. Set `maxRetries: 0` to disable retries.
 | `fetch` | No | `globalThis.fetch` | Custom fetch implementation for tests or proxies. |
 
 API keys are full-access by default. You can create a key with only the
-`read`, `write`, `delete`, or `billing` scopes it needs. Use a read-only scoped
+`read`, `write`, `delete`, or `billing` scopes it needs. The personal-memory
+resources use explicit scopes (`people:*`, `reminders:*`, `brief:read`,
+`meetings:read`, `timeline:read`, `inbound:*`) that existing keys do not gain
+automatically. Use a read-only scoped
 key or a server proxy when a key may reach client code.
 
 ## Method reference
@@ -455,7 +633,7 @@ key or a server proxy when a key may reach client code.
 | `getWorkspaceExport(exportId)` | Read one export job and its download URL. |
 | `search(input)` | Search memories, documents, or both. |
 | `get(memoryId, options?)` | Get one memory in an explicit or default container. |
-| `list(input)` | List memories in one explicit or default scope. |
+| `list(input)` | List memories in one explicit or default scope, with `since` / `until` / `createdByKind` / `memoryType` filters. |
 | `update(memoryId, input, options?)` | Update one memory in an explicit or default container. |
 | `delete(memoryId, options?)` | Delete one memory in an explicit or default container. |
 | `restore(memoryId)` | Restore a recoverable deletion. |
@@ -472,6 +650,34 @@ key or a server proxy when a key may reach client code.
 | `jobs.get(jobId, options?)` | Get one ingestion job. |
 | `jobs.list()` | List ingestion jobs. |
 | `jobs.wait(jobId, options?)` | Wait for an ingestion job to finish. |
+| `youtube.estimate(input)` | Estimate a YouTube ingestion against quota. |
+| `youtube.create(input)` | Start a YouTube ingestion. |
+| `youtube.get(ingestionId)` | Get one YouTube ingestion. |
+| `people.create(input)` | Create a person (`person:<slug>` container). |
+| `people.list(input?)` | List people, newest first. |
+| `people.get(slug)` | Get one person with memory and reminder counts. |
+| `people.update(slug, input)` | Update contact fields; `null` clears a field. |
+| `people.archive(slug, options?)` | Archive a person, optionally soft-deleting their memories. |
+| `people.summary(slug, options?)` | Reader summary plus open reminders and recent memories. |
+| `reminders.create(input)` | Create a reminder under a person or container. |
+| `reminders.list(input?)` | List reminders by status and due window. |
+| `reminders.upcoming(input?)` | Overdue / today / upcoming buckets and important dates. |
+| `reminders.update(memoryId, input)` | Reschedule or edit a reminder. |
+| `reminders.complete(memoryId)` | Complete a reminder. |
+| `reminders.reopen(memoryId, input)` | Reopen a completed reminder with a new due time. |
+| `timeline.get(input?)` | Merged memory / document / event stream for one container. |
+| `brief.today(input?)` | Daily brief for today. |
+| `brief.get(input?)` | Daily brief for a specific local day. |
+| `meetings.upcoming(input?)` | Upcoming calendar meetings and connections. |
+| `meetings.get(documentId)` | Get one meeting. |
+| `meetings.brief(documentId, options?)` | Pre-meeting brief with matched people. |
+| `inbound.channels.create(input)` | Link a phone number for WhatsApp / SMS capture. |
+| `inbound.channels.list(input?)` | List capture channels. |
+| `inbound.channels.get(id)` | Get one capture channel. |
+| `inbound.channels.update(id, input)` | Change a channel's container or disable it. |
+| `inbound.channels.delete(id)` | Remove a capture channel. |
+| `inbound.channels.regenerateCode(id)` | Issue a new verification code. |
+| `memories.merge(input)` | Merge 2..20 memories into one survivor. |
 
 All request and response types are exported from `getmnemo`.
 

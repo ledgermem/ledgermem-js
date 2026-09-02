@@ -1,4 +1,9 @@
 import { MnemoTimeoutError } from './errors.js'
+import {
+  assertBatchSize,
+  type ContainerResolver,
+  type Requester,
+} from './request.js'
 import type {
   CreateDocumentInput,
   CreateDocumentResponse,
@@ -11,7 +16,6 @@ import type {
   JobListResponse,
   ListDocumentsInput,
   PaginatedDocuments,
-  Scope,
   UpdateDocumentInput,
   UpdateDocumentResponse,
   WaitForJobOptions,
@@ -21,23 +25,10 @@ import type {
   YouTubeIngestion,
 } from './types.js'
 
-type Requester = <T>(method: string, path: string, body?: unknown) => Promise<T>
-type ContainerInput = { containerTag?: string; scope?: Scope }
-type ContainerResolver = (
-  method: string,
-  input: ContainerInput,
-) => { containerTag: string } | { scope: Scope }
-
 const TERMINAL_JOB_STATUSES = new Set(['completed', 'failed'])
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function assertBatchSize(label: string, size: number, max: number): void {
-  if (size < 1 || size > max) {
-    throw new Error(`${label}: batch size must be between 1 and ${max}`)
-  }
 }
 
 export class DocumentsResource {

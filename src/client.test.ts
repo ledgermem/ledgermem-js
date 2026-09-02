@@ -1,20 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { Mnemo, MnemoHTTPError } from './index.js'
-
-function fakeFetch(handler: (req: Request) => Response | Promise<Response>): typeof fetch {
-  return ((input: string | URL | Request, init?: RequestInit) => {
-    const req = input instanceof Request ? input : new Request(input, init)
-    return Promise.resolve(handler(req))
-  }) as typeof fetch
-}
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
-}
+import { fakeFetch, json } from './test-helpers.js'
 
 function addResponse(statuses: Array<'created' | 'deduplicated'>): Record<string, unknown> {
   const created = statuses.filter((status) => status === 'created').length
