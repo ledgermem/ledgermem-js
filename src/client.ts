@@ -233,6 +233,7 @@ export class Mnemo {
       content,
       idempotencyKey,
       memoryType,
+      dueAt,
       mutationPolicy,
       metadata,
       source,
@@ -248,6 +249,7 @@ export class Mnemo {
           content,
           idempotencyKey,
           memoryType,
+          dueAt,
           mutationPolicy,
           metadata,
           source,
@@ -307,7 +309,8 @@ export class Mnemo {
   /**
    * Patch an existing memory by id.
    * Sends `PATCH /v1/memories/{memoryId}` with body `UpdateMemoryDto`
-   * `{ content?, memoryType?, metadata?, source? }` (none required).
+   * `{ content?, memoryType?, metadata?, source?, dueAt? }` (none required;
+   * `dueAt: null` clears a reminder's due time).
    */
   async update(
     memoryId: string,
@@ -318,10 +321,11 @@ export class Mnemo {
       input.content === undefined &&
       input.memoryType === undefined &&
       input.metadata === undefined &&
-      input.source === undefined
+      input.source === undefined &&
+      input.dueAt === undefined
     ) {
       throw new Error(
-        'Mnemo.update: at least one of content/memoryType/metadata/source must be provided',
+        'Mnemo.update: at least one of content/memoryType/metadata/source/dueAt must be provided',
       )
     }
     const params = new URLSearchParams()
@@ -403,7 +407,8 @@ export class Mnemo {
   /**
    * Cursor-paginated list of memories within one required container.
    * Sends `GET /v1/memories` with query
-   * `limit?, cursor?, scopeType+scopeId|containerTag`.
+   * `limit?, cursor?, scopeType+scopeId|containerTag, since?, until?,
+   * createdByKind?, memoryType?`.
    */
   async list(input: ListMemoriesInput = {}): Promise<PaginatedMemories> {
     const params = new URLSearchParams()
@@ -426,6 +431,12 @@ export class Mnemo {
         params.set('containerTag', container.containerTag)
       }
     }
+    if (input.since !== undefined) params.set('since', input.since)
+    if (input.until !== undefined) params.set('until', input.until)
+    if (input.createdByKind !== undefined) {
+      params.set('createdByKind', input.createdByKind)
+    }
+    if (input.memoryType !== undefined) params.set('memoryType', input.memoryType)
     const qs = params.toString()
     return this.#request<PaginatedMemories>('GET', `/v1/memories${qs ? `?${qs}` : ''}`)
   }
